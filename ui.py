@@ -5,6 +5,8 @@ db = next(get_db())
 
 class App(ctk.CTk):
     def __init__(self, **kwargs):
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("dark-blue")
         super().__init__(**kwargs)
         
         self.geometry("800x600")
