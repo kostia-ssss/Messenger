@@ -4,6 +4,9 @@ from data.password_funcs import *
 def get_user_by_username(db, username: str):
     return db.query(User).filter(User.username == username).first()
 
+def get_user_by_id(db, user_id: int):
+    return db.query(User).filter(User.id == user_id).first()
+
 def create_user(db, username: str, password: str):
     db_user = User(username=username, password=hash_password(password))
     db.add(db_user)
@@ -29,3 +32,14 @@ def login_user(db, username: str, password: str):
     if user and verify_password(password, user.password):
         return user
     return None
+
+
+def create_chat(db, user1_id: int, user2_id: int):
+    chat = Chat(user1_id=user1_id, user2_id=user2_id)
+    db.add(chat)
+    db.commit()
+    db.refresh(chat)
+    return chat
+
+def get_chats_of_user(db, user_id: int):
+    return db.query(Chat).filter((Chat.user1_id == user_id) | (Chat.user2_id == user_id)).all()
