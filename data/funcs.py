@@ -1,10 +1,11 @@
 from data.models import *
+from data.password_funcs import *
 
 def get_user_by_username(db, username: str):
     return db.query(User).filter(User.username == username).first()
 
 def create_user(db, username: str, password: str):
-    db_user = User(username=username, password=password)
+    db_user = User(username=username, password=hash_password(password))
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -22,3 +23,9 @@ def init_db():
 
 def get_users(db):
     return db.query(User).all()
+
+def login_user(db, username: str, password: str):
+    user = get_user_by_username(db, username)
+    if user and verify_password(password, user.password):
+        return user
+    return None
