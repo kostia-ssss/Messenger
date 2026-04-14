@@ -1,31 +1,53 @@
 import os
 import json
+import sys
 from PyQt6.QtWidgets import *
 from sql.funcs import *
 from ui.theme_manager import *
 
 db = next(get_db())
 
+# ===== PATH RESOLUTION =====
+if getattr(sys, 'frozen', False):
+    # exe compiled with PyInstaller
+    BASE_DIR = sys._MEIPASS
+else:
+    # development mode
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def load_styles(app):
-    with open("styles.qss", "r") as f:
-        app.setStyleSheet(f.read())
+    styles_path = os.path.join(BASE_DIR, "styles.qss")
+    if os.path.exists(styles_path):
+        try:
+            with open(styles_path, "r", encoding="utf-8") as f:
+                app.setStyleSheet(f.read())
+        except Exception as e:
+            print(f"Warning: Could not load styles: {e}")
+    else:
+        print(f"Warning: styles.qss not found at {styles_path}")
 
 # ===== CURRENT USER =====
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PATH = os.path.join(BASE_DIR, "..", "data", "current_user.json")
+PATH = os.path.join(BASE_DIR, "data", "current_user.json")
 
 def get_current_user():
     try:
-        with open(PATH, "r") as f:
-            data = json.load(f)
-            username = data["username"]
-            return get_user_by_username(db, username)
-    except:
-        return None
+        if os.path.exists(PATH):
+            with open(PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                username = data.get("username", "")
+                if username:
+                    return get_user_by_username(db, username)
+    except Exception as e:
+        print(f"Error reading current user: {e}")
+    return None
 
 def set_current_user(username):
-    with open(PATH, "w") as f:
-        json.dump({"username": username}, f)
+    try:
+        os.makedirs(os.path.dirname(PATH), exist_ok=True)
+        with open(PATH, "w", encoding="utf-8") as f:
+            json.dump({"username": username}, f)
+    except Exception as e:
+        print(f"Error setting current user: {e}")
 
 # ===== MAIN APP =====
 class App(QMainWindow):
@@ -48,11 +70,7 @@ class App(QMainWindow):
 
     def apply_theme(self):
         theme = get_theme()
-
-        if theme == "dark":
-            load_theme(QApplication.instance(), "themes/dark.qss")
-        else:
-            load_theme(QApplication.instance(), "themes/light.qss")
+        load_theme(QApplication.instance(), theme)
 
     def toggle_theme(self):
         current = get_theme()
