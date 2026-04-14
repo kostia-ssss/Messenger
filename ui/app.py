@@ -2,8 +2,13 @@ import os
 import json
 from PyQt6.QtWidgets import *
 from sql.funcs import *
+from ui.theme_manager import *
 
 db = next(get_db())
+
+def load_styles(app):
+    with open("styles.qss", "r") as f:
+        app.setStyleSheet(f.read())
 
 # ===== CURRENT USER =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +31,7 @@ def set_current_user(username):
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+
         self.setWindowTitle("PolarStar")
         self.setGeometry(100, 100, 800, 600)
 
@@ -35,14 +41,34 @@ class App(QMainWindow):
         self.main_layout = QVBoxLayout(self.central_widget)
 
         self.current_user = get_current_user()
+
+        self.apply_theme()
+
         self.reload_ui()
 
+    def apply_theme(self):
+        theme = get_theme()
+
+        if theme == "dark":
+            load_theme(QApplication.instance(), "themes/dark.qss")
+        else:
+            load_theme(QApplication.instance(), "themes/light.qss")
+
+    def toggle_theme(self):
+        current = get_theme()
+
+        if current == "dark":
+            set_theme("light")
+        else:
+            set_theme("dark")
+
+        self.apply_theme()
+
     def reload_ui(self):
-        # очистка
         for i in reversed(range(self.main_layout.count())):
-            widget = self.main_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
+            w = self.main_layout.itemAt(i).widget()
+            if w:
+                w.deleteLater()
 
         if self.current_user is None:
             self.show_login_buttons()
@@ -58,6 +84,10 @@ class App(QMainWindow):
         register_button.clicked.connect(self.open_register_window)
         self.main_layout.addWidget(register_button)
 
+        theme_button = QPushButton("Toggle Theme")
+        theme_button.clicked.connect(self.toggle_theme)
+        self.main_layout.addWidget(theme_button)
+
     def show_user_info(self):
         label = QLabel(f"Welcome, {self.current_user.username}!")
         self.main_layout.addWidget(label)
@@ -66,18 +96,14 @@ class App(QMainWindow):
         logout_button.clicked.connect(self.logout)
         self.main_layout.addWidget(logout_button)
 
+        theme_button = QPushButton("Toggle Theme")
+        theme_button.clicked.connect(self.toggle_theme)
+        self.main_layout.addWidget(theme_button)
+
     def logout(self):
         set_current_user("")
         self.current_user = None
         self.reload_ui()
-
-    def open_login_window(self):
-        self.login_window = Login(self)
-        self.login_window.show()
-
-    def open_register_window(self):
-        self.register_window = Register(self)
-        self.register_window.show()
 
 # ===== REGISTER =====
 class Register(QMainWindow):
@@ -85,6 +111,8 @@ class Register(QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("Register")
         self.setGeometry(200, 200, 300, 200)
+
+        load_styles(self)
 
         self.parent_app = parent
 
@@ -132,6 +160,8 @@ class Login(QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("Login")
         self.setGeometry(200, 200, 300, 200)
+
+        load_styles(self)
 
         self.parent_app = parent
 

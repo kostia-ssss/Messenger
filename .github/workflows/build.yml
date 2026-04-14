@@ -25,15 +25,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller customtkinter
 
+      - name: Clean build
+        run: |
+          if exist build rmdir /s /q build
+          if exist dist rmdir /s /q dist
+          if exist Messenger.spec del Messenger.spec
+
       - name: Build EXE
-        run: pyinstaller --onefile --name Messenger ./main.py
+        run: pyinstaller --onefile --clean --name Messenger main.py
+
+      - name: Debug output
+        run: dir dist
 
       - name: Create/Update Release
         uses: ncipollo/release-action@v1
         with:
           tag: latest
           name: Latest Build
-          artifacts: dist/*
+          artifacts: dist/Messenger.exe
           allowUpdates: true
           replacesArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
