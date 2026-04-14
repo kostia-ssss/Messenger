@@ -30,11 +30,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller customtkinter
+          pip install pyinstaller pyqt6
 
       - name: Build EXE
-        run: pyinstaller --onefile --clean --noconfirm --name Messenger main.py
-
+        run: |
+          pyinstaller --onefile --clean --noconfirm --name Messenger main.py ^
+          --hidden-import=PyQt6 ^
+          --hidden-import=PyQt6.QtCore ^
+          --hidden-import=PyQt6.QtWidgets ^
+          --hidden-import=PyQt6.QtGui ^
+          --hidden-import=PyQt6.QtNetwork
+          
       - name: Debug output
         run: dir dist
 
