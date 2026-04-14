@@ -15,6 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Clean build
+        run: |
+          if exist build rmdir /s /q build
+          if exist dist rmdir /s /q dist
+          if exist Messenger.spec del Messenger.spec
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -25,24 +31,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller customtkinter
 
-      - name: Clean build
-        run: |
-          if exist build rmdir /s /q build
-          if exist dist rmdir /s /q dist
-          if exist Messenger.spec del Messenger.spec
-
       - name: Build EXE
-        run: pyinstaller --onefile --clean --name Messenger main.py
+        run: pyinstaller --onefile --clean --noconfirm --name Messenger main.py
 
       - name: Debug output
         run: dir dist
 
-      - name: Create/Update Release
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          tag: latest
-          name: Latest Build
+          tag: v${{ github.run_number }}.0.0
+          name: Build ${{ github.run_number }}
           artifacts: dist/Messenger.exe
-          allowUpdates: true
-          replacesArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
