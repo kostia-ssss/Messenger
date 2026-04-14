@@ -34,13 +34,8 @@ jobs:
 
       - name: Build EXE
         run: |
-          pyinstaller --onefile --clean --noconfirm --name Messenger main.py ^
-          --hidden-import=PyQt6 ^
-          --hidden-import=PyQt6.QtCore ^
-          --hidden-import=PyQt6.QtWidgets ^
-          --hidden-import=PyQt6.QtGui ^
-          --hidden-import=PyQt6.QtNetwork
-          
+          pyinstaller --onefile --clean --noconfirm --name Messenger main.py --collect-all PyQt6
+
       - name: Debug output
         run: dir dist
 
