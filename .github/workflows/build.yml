@@ -13,16 +13,17 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Clean build
+        shell: cmd
         run: |
           if exist build rmdir /s /q build
           if exist dist rmdir /s /q dist
           if exist Messenger.spec del Messenger.spec
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
