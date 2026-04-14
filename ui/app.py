@@ -1,62 +1,171 @@
-import customtkinter as ctk
-from data.funcs import *
-from ui.register import RegisterWindow
-from ui.login import LoginWindow
-from ui.chats import ChatsFrame
+import os
+import json
+from PyQt6.QtWidgets import *
+from sql.funcs import *
 
 db = next(get_db())
 
-class App(ctk.CTk):
-    def __init__(self, **kwargs):
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("dark-blue")
-        super().__init__(**kwargs)
+# ===== CURRENT USER =====
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PATH = os.path.join(BASE_DIR, "..", "data", "current_user.json")
 
-        self.geometry("800x600")
-        self.title("Messenger")
+def get_current_user():
+    try:
+        with open(PATH, "r") as f:
+            data = json.load(f)
+            username = data["username"]
+            return get_user_by_username(db, username)
+    except:
+        return None
 
-        self.chats_frame = ChatsFrame(self)
-        self.chats_frame.grid(row=0, column=2, padx=20, pady=20)
+def set_current_user(username):
+    with open(PATH, "w") as f:
+        json.dump({"username": username}, f)
 
-        self.register_button = ctk.CTkButton(self, text="Register", command=self.register)
-        self.register_button.grid(row=0, column=0, padx=20, pady=20)
+# ===== MAIN APP =====
+class App(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("PolarStar")
+        self.setGeometry(100, 100, 800, 600)
 
-        self.login_button = ctk.CTkButton(self, text="Login", command=self.login)
-        self.login_button.grid(row=1, column=0, padx=20, pady=20)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
 
-        self.users = ctk.CTkLabel(self, text="Users: ")
-        self.users.grid(row=2, column=0, padx=20, pady=20)
+        self.main_layout = QVBoxLayout(self.central_widget)
 
-        self.current_user = ctk.CTkLabel(self, text="Unlogined")
-        self.current_user.grid(row=0, column=1, padx=20, pady=20)
+        self.current_user = get_current_user()
+        self.reload_ui()
 
-        self.users_list = []
-        for user in get_users(db):
-            lbl = ctk.CTkLabel(self, text=user.username)
-            lbl.grid(row=2 + len(self.users_list), column=0, padx=20, pady=5)
-            self.users_list.append(lbl)
+    def reload_ui(self):
+        # очистка
+        for i in reversed(range(self.main_layout.count())):
+            widget = self.main_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
 
-    def refresh_users(self, current_user=None):
-        self.users.configure(text="Users: ")
-
-        for label in self.users_list:
-            label.destroy()
-        self.users_list.clear()
-
-        for user in get_users(db):
-            lbl = ctk.CTkLabel(self, text=user.username)
-            lbl.grid(row=2 + len(self.users_list), column=0, padx=20, pady=5)
-            self.users_list.append(lbl)
-
-        if current_user:
-            self.current_user.configure(text=current_user.username)
+        if self.current_user is None:
+            self.show_login_buttons()
         else:
-            self.current_user.configure(text="Unlogined")
+            self.show_user_info()
 
-        self.chats_frame.update_chats_list()
+    def show_login_buttons(self):
+        login_button = QPushButton("Login")
+        login_button.clicked.connect(self.open_login_window)
+        self.main_layout.addWidget(login_button)
+
+        register_button = QPushButton("Register")
+        register_button.clicked.connect(self.open_register_window)
+        self.main_layout.addWidget(register_button)
+
+    def show_user_info(self):
+        label = QLabel(f"Welcome, {self.current_user.username}!")
+        self.main_layout.addWidget(label)
+
+        logout_button = QPushButton("Logout")
+        logout_button.clicked.connect(self.logout)
+        self.main_layout.addWidget(logout_button)
+
+    def logout(self):
+        set_current_user("")
+        self.current_user = None
+        self.reload_ui()
+
+    def open_login_window(self):
+        self.login_window = Login(self)
+        self.login_window.show()
+
+    def open_register_window(self):
+        self.register_window = Register(self)
+        self.register_window.show()
+
+# ===== REGISTER =====
+class Register(QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Register")
+        self.setGeometry(200, 200, 300, 200)
+
+        self.parent_app = parent
+
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
+
+        self.username = QLineEdit()
+        self.username.setPlaceholderText("Username")
+        layout.addWidget(self.username)
+
+        self.password = QLineEdit()
+        self.password.setPlaceholderText("Password")
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.password)
+
+        btn = QPushButton("Register")
+        btn.clicked.connect(self.register)
+        layout.addWidget(btn)
 
     def register(self):
-        RegisterWindow(self)
+        username = self.username.text()
+        password = self.password.text()
+
+        if not username or not password:
+            QMessageBox.warning(self, "Error", "Fill all fields")
+            return
+
+        user = create_user(db, username, password)
+        if not user:
+            QMessageBox.warning(self, "Error", "User exists")
+            return
+
+        set_current_user(username)
+
+        self.parent_app.current_user = user
+        self.parent_app.reload_ui()
+
+        QMessageBox.information(self, "Success", "Registered!")
+        self.close()
+
+# ===== LOGIN =====
+class Login(QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Login")
+        self.setGeometry(200, 200, 300, 200)
+
+        self.parent_app = parent
+
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
+
+        self.username = QLineEdit()
+        self.username.setPlaceholderText("Username")
+        layout.addWidget(self.username)
+
+        self.password = QLineEdit()
+        self.password.setPlaceholderText("Password")
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.password)
+
+        btn = QPushButton("Login")
+        btn.clicked.connect(self.login)
+        layout.addWidget(btn)
 
     def login(self):
-        LoginWindow(self)
+        username = self.username.text()
+        password = self.password.text()
+
+        user = get_user_by_username(db, username)
+
+        if not user or not verify_password(password, user.password):
+            QMessageBox.warning(self, "Error", "Invalid data")
+            return
+
+        set_current_user(username)
+
+        self.parent_app.current_user = user
+        self.parent_app.reload_ui()
+
+        QMessageBox.information(self, "Success", "Logged in!")
+        self.close()

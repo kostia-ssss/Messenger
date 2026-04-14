@@ -1,7 +1,18 @@
 from ui.app import App
-from data.funcs import init_db
+from sql.funcs import init_db
+from PyQt6.QtWidgets import QApplication
+import sys
 
 init_db()
 
-app = App()
-app.mainloop()
+def main():
+    init_db()
+
+    app = QApplication(sys.argv)
+    window = App()
+    window.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
