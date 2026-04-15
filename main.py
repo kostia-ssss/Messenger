@@ -1,3 +1,4 @@
+# main.py
 import sys
 import traceback
 from PyQt6.QtWidgets import QApplication

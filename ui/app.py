@@ -1,3 +1,4 @@
+# ui/app.py
 import os
 import json
 import sys
@@ -9,15 +10,15 @@ db = next(get_db())
 
 # ===== PATH RESOLUTION =====
 if getattr(sys, 'frozen', False):
-    # exe compiled with PyInstaller
-    BASE_DIR = sys._MEIPASS
+    BASE_DIR = os.path.dirname(sys.executable)  # ← ВАЖЛИВО
+    RESOURCE_DIR = sys._MEIPASS
 else:
-    # development mode
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    RESOURCE_DIR = BASE_DIR
 
 def load_styles(app):
     theme = get_theme()
-    styles_path = os.path.join(BASE_DIR, "themes", f"{theme}.qss")
+    styles_path = os.path.join(RESOURCE_DIR, "themes", f"{theme}.qss")
     if os.path.exists(styles_path):
         try:
             with open(styles_path, "r", encoding="utf-8") as f:

@@ -1,15 +1,16 @@
+# ui/theme_manager.py
 import json
 import os
 import sys
 
 # ===== PATH RESOLUTION =====
 if getattr(sys, 'frozen', False):
-    # exe compiled with PyInstaller
-    BASE_DIR = sys._MEIPASS
+    BASE_DIR = os.path.dirname(sys.executable)
+    RESOURCE_DIR = sys._MEIPASS
 else:
-    # development mode
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+    RESOURCE_DIR = BASE_DIR
+    
 THEME_PATH = os.path.join(BASE_DIR, "data", "theme.json")
 
 def load_theme(app, theme_name):

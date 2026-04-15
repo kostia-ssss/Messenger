@@ -1,3 +1,4 @@
+# sql/password_funcs.py
 from hashlib import sha256
 
 def hash_password(password):
