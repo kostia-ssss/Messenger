@@ -16,7 +16,8 @@ else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def load_styles(app):
-    styles_path = os.path.join(BASE_DIR, "styles.qss")
+    theme = get_theme()
+    styles_path = os.path.join(BASE_DIR, "themes", f"{theme}.qss")
     if os.path.exists(styles_path):
         try:
             with open(styles_path, "r", encoding="utf-8") as f:
@@ -24,7 +25,7 @@ def load_styles(app):
         except Exception as e:
             print(f"Warning: Could not load styles: {e}")
     else:
-        print(f"Warning: styles.qss not found at {styles_path}")
+        print(f"Warning: {theme}.qss not found at {styles_path}")
 
 # ===== CURRENT USER =====
 PATH = os.path.join(BASE_DIR, "data", "current_user.json")
@@ -105,6 +106,14 @@ class App(QMainWindow):
         theme_button = QPushButton("Toggle Theme")
         theme_button.clicked.connect(self.toggle_theme)
         self.main_layout.addWidget(theme_button)
+    
+    def open_login_window(self):
+        self.login_window = Login(self)
+        self.login_window.show()
+    
+    def open_register_window(self):
+        self.register_window = Register(self)
+        self.register_window.show()
 
     def show_user_info(self):
         label = QLabel(f"Welcome, {self.current_user.username}!")

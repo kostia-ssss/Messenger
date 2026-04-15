@@ -1,12 +1,20 @@
 from sqlalchemy import Column, Integer, String, create_engine, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+import os
+import sys
 
-db_name = "data/data.db"
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{db_name}"
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+db_path = os.path.join(BASE_DIR, "data.db")
+
 engine = create_engine(
- SQLALCHEMY_DATABASE_URL,
-connect_args={"check_same_thread": False})
+    f"sqlite:///{db_path}",
+    connect_args={"check_same_thread": False}
+)
 SessionLocal = sessionmaker(autocommit=False,
 autoflush=False, bind=engine)
 Base = declarative_base()

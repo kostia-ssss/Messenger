@@ -3,8 +3,6 @@ from sql.funcs import init_db
 from PyQt6.QtWidgets import QApplication
 import sys
 
-init_db()
-
 def main():
     init_db()
 
