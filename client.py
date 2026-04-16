@@ -2,6 +2,7 @@ import sys
 import asyncio
 import threading
 import websockets
+import ssl
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
@@ -152,17 +153,26 @@ class ChatApp(QWidget):
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self.ws_main())
 
+    
+
     async def ws_main(self):
         uri = f"wss://polarstar.onrender.com/ws/{self.room}/{self.nickname}"
 
-        async with websockets.connect(uri) as ws:
-            self.ws = ws
+        ssl_context = ssl._create_unverified_context()
 
-            self.message_signal.emit("✅ Connected")
+        try:
+            async with websockets.connect(uri, ssl=ssl_context) as ws:
+                self.ws = ws
 
-            while True:
-                msg = await ws.recv()
-                self.message_signal.emit(msg)
+                self.message_signal.emit("✅ Connected")
+
+                while True:
+                    msg = await ws.recv()
+                    self.message_signal.emit(msg)
+
+        except Exception as e:
+            print("WS ERROR:", e)
+            self.message_signal.emit(f"❌ ERROR: {e}")
 
 
 # =======================
