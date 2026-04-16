@@ -126,7 +126,7 @@ class ChatApp(QWidget):
         self.loop.run_until_complete(self.ws_main())
 
     async def ws_main(self):
-        uri = f"ws://127.0.0.1:8000/ws/{self.room}/{self.nickname}"
+        uri = f"wss://your-app.onrender.com/ws/{self.room}/{self.nickname}"
 
         async with websockets.connect(uri) as ws:
             self.ws = ws
