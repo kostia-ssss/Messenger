@@ -5,9 +5,40 @@ import websockets
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QLabel, QScrollArea, QFrame
+    QLineEdit, QLabel, QScrollArea, QFrame,
+    QDialog, QPushButton
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+
+
+# =======================
+# LOGIN WINDOW
+# =======================
+class Login(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Login")
+        self.setFixedSize(300, 150)
+
+        self.room_input = QLineEdit()
+        self.room_input.setPlaceholderText("Кімната (WW1, general...)")
+
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Нік")
+
+        self.btn = QPushButton("Join")
+        self.btn.clicked.connect(self.accept)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.room_input)
+        layout.addWidget(self.name_input)
+        layout.addWidget(self.btn)
+
+        self.setLayout(layout)
+
+    def get_data(self):
+        return self.room_input.text(), self.name_input.text()
 
 
 # =======================
@@ -35,16 +66,19 @@ class MessageBubble(QFrame):
 
 
 # =======================
-# Main App
+# MAIN CHAT
 # =======================
 class ChatApp(QWidget):
 
     message_signal = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, room, nickname):
         super().__init__()
 
-        self.setWindowTitle("Messenger")
+        self.room = room
+        self.nickname = nickname
+
+        self.setWindowTitle(f"Messenger - {room}")
         self.setGeometry(300, 150, 500, 700)
 
         # UI
@@ -71,18 +105,14 @@ class ChatApp(QWidget):
         # signals
         self.message_signal.connect(self.handle_message)
 
-        # networking
+        # websocket
         self.ws = None
         self.loop = asyncio.new_event_loop()
-
-        # login
-        self.room = input("Кімната: ")
-        self.nickname = input("Нік: ")
 
         threading.Thread(target=self.start_ws, daemon=True).start()
 
     # =======================
-    # UI logic
+    # UI
     # =======================
     def add_message(self, text, is_me=False):
         bubble = MessageBubble(text, is_me)
@@ -101,15 +131,12 @@ class ChatApp(QWidget):
 
         self.chat_layout.addWidget(wrapper)
 
-        # авто-скрол вниз
         self.scroll.verticalScrollBar().setValue(
             self.scroll.verticalScrollBar().maximum()
         )
 
     def handle_message(self, msg):
-        # визначаємо: моє чи ні
         is_me = f"{self.nickname}:" in msg
-
         self.add_message(msg, is_me)
 
     def send_message(self):
@@ -119,14 +146,14 @@ class ChatApp(QWidget):
             self.input_box.clear()
 
     # =======================
-    # WebSocket
+    # WS THREAD
     # =======================
     def start_ws(self):
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self.ws_main())
 
     async def ws_main(self):
-        uri = f"wss://your-app.onrender.com/ws/{self.room}/{self.nickname}"
+        uri = f"ws://127.0.0.1:8000/ws/{self.room}/{self.nickname}"
 
         async with websockets.connect(uri) as ws:
             self.ws = ws
@@ -143,6 +170,12 @@ class ChatApp(QWidget):
 # =======================
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ChatApp()
-    window.show()
-    sys.exit(app.exec())
+
+    login = Login()
+    if login.exec():
+        room, nickname = login.get_data()
+
+        window = ChatApp(room, nickname)
+        window.show()
+
+        sys.exit(app.exec())
