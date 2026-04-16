@@ -1,0 +1,44 @@
+name: Build EXE
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Debug files
+        run: |
+          echo FILES:
+          dir
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          pip install PyQt6 websockets pyinstaller
+
+      - name: Build EXE
+        run: |
+          pyinstaller --onefile --noconsole client.py
+
+      - name: Upload EXE to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: auto-build
+          name: Auto Build
+          files: dist/client.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
