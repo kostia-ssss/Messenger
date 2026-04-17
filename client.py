@@ -142,7 +142,12 @@ class ChatApp(QWidget):
 
     def send_message(self):
         msg = self.input_box.text()
-        if msg and self.ws:
+
+        if not self.ws:
+            self.add_message("⚠️ Немає підключення", False)
+            return
+
+        if msg:
             asyncio.run_coroutine_threadsafe(self.ws.send(msg), self.loop)
             self.input_box.clear()
 
@@ -157,22 +162,33 @@ class ChatApp(QWidget):
 
     async def ws_main(self):
         uri = f"wss://polarstar.onrender.com/ws/{self.room}/{self.nickname}"
-
         ssl_context = ssl._create_unverified_context()
 
-        try:
-            async with websockets.connect(uri, ssl=ssl_context) as ws:
-                self.ws = ws
+        while True:  # 🔁 нескінченні спроби підключення
+            try:
+                self.message_signal.emit("🔄 Connecting...")
 
-                self.message_signal.emit("✅ Connected")
+                async with websockets.connect(
+                    uri,
+                    ssl=ssl_context,
+                    open_timeout=30,
+                    ping_interval=20,
+                    ping_timeout=20
+                ) as ws:
 
-                while True:
-                    msg = await ws.recv()
-                    self.message_signal.emit(msg)
+                    self.ws = ws
+                    self.message_signal.emit("✅ Connected")
 
-        except Exception as e:
-            print("WS ERROR:", e)
-            self.message_signal.emit(f"❌ ERROR: {e}")
+                    while True:
+                        msg = await ws.recv()
+                        self.message_signal.emit(msg)
+
+            except Exception as e:
+                print("WS ERROR:", e)
+                self.message_signal.emit(f"❌ Reconnecting...")
+
+                self.ws = None
+                await asyncio.sleep(5) 
 
 
 # =======================
