@@ -1,181 +1,168 @@
+# client.py
 import sys
 import asyncio
 import threading
 import websockets
-import ssl
+import requests
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QLabel, QScrollArea, QFrame,
     QDialog, QPushButton
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
+
+
+API_URL = "http://localhost:8000"
 
 
 # =======================
-# LOGIN WINDOW
+# API
+# =======================
+def login_request(username, password):
+    try:
+        r = requests.post(f"{API_URL}/login", json={
+            "username": username,
+            "password": password
+        })
+        return r.json().get("token")
+    except:
+        return None
+
+
+def register_request(username, password):
+    try:
+        r = requests.post(f"{API_URL}/register", json={
+            "username": username,
+            "password": password
+        })
+
+        if r.status_code != 200:
+            print("SERVER:", r.text)
+
+        return r.status_code == 200
+
+    except Exception as e:
+        print("REQUEST ERROR:", e)
+        return False
+
+
+# =======================
+# LOGIN UI
 # =======================
 class Login(QDialog):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Login")
-        self.setFixedSize(300, 150)
+        self.setFixedSize(300, 170)
 
-        self.room_input = QLineEdit()
-        self.room_input.setPlaceholderText("Кімната (WW1, general...)")
+        self.token = None
+        self.username = None
 
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Нік")
+        self.password_input = QLineEdit()
 
-        self.btn = QPushButton("Join")
-        self.btn.clicked.connect(self.accept)
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+
+        self.login_btn = QPushButton("Login")
+        self.register_btn = QPushButton("Register")
+
+        self.login_btn.clicked.connect(self.try_login)
+        self.register_btn.clicked.connect(self.try_register)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.room_input)
         layout.addWidget(self.name_input)
-        layout.addWidget(self.btn)
+        layout.addWidget(self.password_input)
+        layout.addWidget(self.login_btn)
+        layout.addWidget(self.register_btn)
 
         self.setLayout(layout)
 
-    def get_data(self):
-        return self.room_input.text(), self.name_input.text()
+    def try_login(self):
+        username = self.name_input.text()
+        password = self.password_input.text()
+
+        token = login_request(username, password)
+
+        if token:
+            self.token = token
+            self.username = username
+            self.accept()
+        else:
+            self.setWindowTitle("❌ Wrong login")
+
+    def try_register(self):
+        username = self.name_input.text()
+        password = self.password_input.text()
+
+        if register_request(username, password):
+            self.setWindowTitle("✅ Registered")
+        else:
+            self.setWindowTitle("❌ Error")
 
 
 # =======================
-# Bubble widget
-# =======================
-class MessageBubble(QFrame):
-    def __init__(self, text, is_me=False):
-        super().__init__()
-
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {'#2b5278' if is_me else '#3a3a3a'};
-                border-radius: 10px;
-                padding: 8px;
-                color: white;
-            }}
-        """)
-
-        layout = QHBoxLayout()
-        label = QLabel(text)
-        label.setWordWrap(True)
-
-        layout.addWidget(label)
-        self.setLayout(layout)
-
-
-# =======================
-# MAIN CHAT
+# CHAT
 # =======================
 class ChatApp(QWidget):
 
     message_signal = pyqtSignal(str)
 
-    def __init__(self, room, nickname):
+    def __init__(self, username, token):
         super().__init__()
 
-        self.room = room
-        self.nickname = nickname
+        self.username = username
+        self.token = token
 
-        self.setWindowTitle(f"Messenger - {room}")
-        self.setGeometry(300, 150, 500, 700)
+        self.setWindowTitle(f"Chat - {username}")
+        self.resize(500, 700)
 
-        # UI
-        self.layout = QVBoxLayout()
+        layout = QVBoxLayout()
 
         self.chat_layout = QVBoxLayout()
-
-        self.scroll_widget = QWidget()
-        self.scroll_widget.setLayout(self.chat_layout)
+        self.chat_widget = QWidget()
+        self.chat_widget.setLayout(self.chat_layout)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.scroll_widget)
+        self.scroll.setWidget(self.chat_widget)
 
-        self.input_box = QLineEdit()
-        self.input_box.setPlaceholderText("Напиши повідомлення...")
-        self.input_box.returnPressed.connect(self.send_message)
+        self.input = QLineEdit()
+        self.input.returnPressed.connect(self.send_message)
 
-        self.layout.addWidget(self.scroll)
-        self.layout.addWidget(self.input_box)
+        layout.addWidget(self.scroll)
+        layout.addWidget(self.input)
 
-        self.setLayout(self.layout)
+        self.setLayout(layout)
 
-        # signals
-        self.message_signal.connect(self.handle_message)
+        self.message_signal.connect(self.add_message)
 
-        # websocket
         self.ws = None
         self.loop = asyncio.new_event_loop()
 
         threading.Thread(target=self.start_ws, daemon=True).start()
 
-    # =======================
-    # UI
-    # =======================
-    def add_message(self, text, is_me=False):
-        bubble = MessageBubble(text, is_me)
-
-        container = QHBoxLayout()
-
-        if is_me:
-            container.addStretch()
-            container.addWidget(bubble)
-        else:
-            container.addWidget(bubble)
-            container.addStretch()
-
-        wrapper = QWidget()
-        wrapper.setLayout(container)
-
-        self.chat_layout.addWidget(wrapper)
-
-        self.scroll.verticalScrollBar().setValue(
-            self.scroll.verticalScrollBar().maximum()
-        )
-
-    def handle_message(self, msg):
-        is_me = f"{self.nickname}:" in msg
-        self.add_message(msg, is_me)
+    def add_message(self, msg):
+        label = QLabel(msg)
+        self.chat_layout.addWidget(label)
 
     def send_message(self):
-        msg = self.input_box.text()
-
-        if not self.ws:
-            self.add_message("⚠️ Немає підключення", False)
-            return
-
-        if msg:
+        msg = self.input.text()
+        if self.ws and msg:
             asyncio.run_coroutine_threadsafe(self.ws.send(msg), self.loop)
-            self.input_box.clear()
+            self.input.clear()
 
-    # =======================
-    # WS THREAD
-    # =======================
     def start_ws(self):
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self.ws_main())
 
-    
-
     async def ws_main(self):
-        uri = f"wss://polarstar.onrender.com/ws/{self.room}/{self.nickname}"
-        ssl_context = ssl._create_unverified_context()
+        uri = f"ws://localhost:8000/ws?token={self.token}"
 
-        while True:  # 🔁 нескінченні спроби підключення
+        while True:
             try:
-                self.message_signal.emit("🔄 Connecting...")
-
-                async with websockets.connect(
-                    uri,
-                    ssl=ssl_context,
-                    open_timeout=30,
-                    ping_interval=20,
-                    ping_timeout=20
-                ) as ws:
-
+                async with websockets.connect(uri) as ws:
                     self.ws = ws
                     self.message_signal.emit("✅ Connected")
 
@@ -185,10 +172,8 @@ class ChatApp(QWidget):
 
             except Exception as e:
                 print("WS ERROR:", e)
-                self.message_signal.emit(f"❌ Reconnecting...")
-
-                self.ws = None
-                await asyncio.sleep(5) 
+                self.message_signal.emit("❌ Reconnecting...")
+                await asyncio.sleep(3)
 
 
 # =======================
@@ -199,9 +184,6 @@ if __name__ == "__main__":
 
     login = Login()
     if login.exec():
-        room, nickname = login.get_data()
-
-        window = ChatApp(room, nickname)
+        window = ChatApp(login.username, login.token)
         window.show()
-
         sys.exit(app.exec())
